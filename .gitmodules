@@ -1,9 +1,12 @@
 [submodule "SpadeRunner"]
 	path = SpadeRunner
 	url = https://github.com/DynaMaze305/SpadeRunner.git
+	branch = main
 [submodule "SpadeController"]
 	path = SpadeController
 	url = https://github.com/DynaMaze305/SpadeController.git
+	branch = main
 [submodule "CameraAgent"]
 	path = CameraAgent
 	url = https://github.com/DynaMaze305/CameraAgent.git
+	branch = main
