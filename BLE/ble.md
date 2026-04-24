@@ -24,3 +24,11 @@
     *   **UUID :** `794F1fE3-9BE8-4875-83BA-731E1037A882`
     *   **Opération :** Write without response
     *   **Données :** `UInt8[3]` (3 octets) — Intensité R-G-B (0-255).
+
+## Règles concernant la BLE
+
+Après discussions avec Mr.Calvaresi, les modalités suivantes ont été conclues :
+
+- les portiques seront positionnées dans des culs-de-sac
+- Si un robot trigger le mauvais prtique de fin -> disqualification
+- Un seul agent timer pour les deux équipes (sur le Raspberry Pi)
