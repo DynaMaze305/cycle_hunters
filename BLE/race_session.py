@@ -1,7 +1,7 @@
 import asyncio
 import time
 from enum import Enum
-from gate import Gate
+from .gate import Gate
 
 # https://stackoverflow.com/questions/37601644/python-whats-the-enum-type-good-for
 class RaceState(Enum):

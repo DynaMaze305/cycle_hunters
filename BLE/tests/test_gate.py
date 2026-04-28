@@ -1,6 +1,6 @@
 import asyncio
 from bleak import BleakScanner
-from gate import Gate
+from ..gate import Gate
 
 PORTIC_NAME = "Timing Node"
 
