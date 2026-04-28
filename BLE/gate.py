@@ -16,7 +16,7 @@ class Gate:
         """Connect to the gate and observe IR values
         """
         await self._client.connect()
-        await self._client.start_notify(IR_CHAR_UUID, lambda sender, data: self._on_ir(sender, data))
+        await self._client.start_notify(IR_CHAR_UUID, lambda sender, data: self._on_ir(data))
 
     async def disconnect(self) -> None:
         """Disconnet from the gate
