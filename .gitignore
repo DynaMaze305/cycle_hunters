@@ -1,1 +1,3 @@
 .vscode/settings.json
+BLE/__pycache__/*
+BLE/tests/__pycache__/*
