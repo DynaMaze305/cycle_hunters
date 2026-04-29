@@ -61,8 +61,8 @@ class RaceSession:
     async def _run_loop(self) -> None:
         while True:
             # Starting procedures
-            self.start_gate.reset()
-            self.end_gate.reset()
+            self.start_gate.reset_crossed()
+            self.end_gate.reset_crossed()
             self.state = RaceState.WAITING
 
             # When start_gate is crossed -> start race
