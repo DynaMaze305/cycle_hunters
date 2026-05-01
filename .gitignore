@@ -1,3 +1,4 @@
 .vscode/settings.json
 TimeKeeper/tests/__pycache__/*
 TimeKeeper/__pycache__/*
+TimeKeeper/.env
