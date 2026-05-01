@@ -1,0 +1,5 @@
+bleak>=3.0.1
+spade==3.3.3
+slixmpp==1.7.1
+python-dotenv>=1.0.0
+colorlog>=6.0.0
