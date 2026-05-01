@@ -86,15 +86,6 @@ class Gate:
         """
         self._pressed.clear()
 
-    async def flashing(self) -> None:
-        """White led flashing mode
-        """
-        while True:
-            await self.set_led(255, 255, 255)
-            await asyncio.sleep(0.2)
-            await self.set_led(0, 0, 0)
-            await asyncio.sleep(0.2)
-
     async def set_led(self, r: int, g: int, b: int) -> None:
         """Set led color
 
@@ -104,3 +95,38 @@ class Gate:
             b (int): blue value [0-255]
         """
         await self._client.write_gatt_char(LED_CHAR_UUID, bytes([r, g, b]), response=False)
+
+    async def pairing_blink(self) -> None:
+        """White led pairing_blink mode to signal gate in pairing and waiting manual confirmation
+        """
+        while True:
+            await self.set_led(255, 255, 255)
+            await asyncio.sleep(0.2)
+            await self.set_led(0, 0, 0)
+            await asyncio.sleep(0.2)
+
+    async def finish_blink(self) -> None:
+        """Blink to signal race finish"""
+        for r, g, b in  [(255, 0, 0),
+                         (0, 255, 0),
+                         (0, 0, 255),
+                         (255, 255, 0),
+                         (255, 0, 255),]:
+            
+            await self.set_led(r, g, b)
+            await asyncio.sleep(0.2)
+            await self.set_led(0, 0, 0)
+            await asyncio.sleep(0.2)
+
+    async def starting_blink(self) -> None:
+        """Start LED sequence
+        """
+        for r, g, b in [(255, 0, 0),
+                        (255, 200, 0),
+                        (0, 255, 0),]:
+            for _ in range(2):
+                await self.set_led(r, g, b)
+                await asyncio.sleep(0.25)
+                await self.set_led(0, 0, 0)
+                await asyncio.sleep(0.25)
+        await self.set_led(0, 255, 0)
