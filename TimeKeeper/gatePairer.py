@@ -19,15 +19,15 @@ ROLES = ["start", "end"]
 
 async def find_two_gates(timeout=3.0) -> list[BLEDevice]:
     while True:
-        print("[gatePairer] -- Searching out 2 gates to connect to...")
+        logger.debug("[gatePairer] -- Searching out 2 gates to connect to...")
         connections = await BleakScanner.discover(timeout=timeout)
         portics = [gate for gate in connections if gate.name == PORTIC_NAME]
         # Use top two on the list
         if len(portics) >= 2:
-            print(f"[gatePairer] -- Using: {portics[0].address} & {portics[1].address}")
+            logger.debug(f"[gatePairer] -- Using: {portics[0].address} & {portics[1].address}")
             return portics[:2]
         # search again
-        print("[gatePairer] -- Not enough gates found, re-trying...")
+        logger.debug("[gatePairer] -- Not enough gates found, re-trying...")
 
 async def configure_pair_of_gates(pair: list[BLEDevice]) -> list[Gate]:
     """Pair of gates configuration process

@@ -1,7 +1,10 @@
 import asyncio
+import logging
 import time
 from enum import Enum
 from .gate import Gate
+
+logger = logging.getLogger("RaceSession")
 
 # https://stackoverflow.com/questions/37601644/python-whats-the-enum-type-good-for
 class RaceState(Enum):
@@ -41,6 +44,7 @@ class RaceSession:
         """Connect gates and launch the time loop"""
         await self.start_gate.connect()
         await self.end_gate.connect()
+        logger.debug(f"[RaceSession {self.session_id}] -- Initialized & waiting for start_gate to be triggered...")
         self._task = asyncio.create_task(self._run_loop())
 
     async def stop(self) -> None:
@@ -69,10 +73,12 @@ class RaceSession:
             await self.start_gate.wait_crossed()
             t0 = time.monotonic()
             self.state = RaceState.RUNNING
+            logger.info(f"[RaceSession {self.session_id}] -- Race started")
             self._notify("race_start")
 
             # When end_gate is crossed -> end race
             await self.end_gate.wait_crossed()
             self.time = time.monotonic() - t0
             self.state = RaceState.FINISHED
+            logger.info(f"[RaceSession {self.session_id}] -- Race finished: {self.time:.3f}s")
             self._notify("race_finish")
