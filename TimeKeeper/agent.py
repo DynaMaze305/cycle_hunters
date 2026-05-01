@@ -27,9 +27,8 @@ class TimeKeeperAgent(Agent):
     async def _send_message(self, recipient: str, body: str) -> None:
         """Send message async to a specific recipient
         """
-        msg = Message(to=recipient)
-        msg.body = body
-        await self.send(msg)
+        msg = Message(to=recipient, body=body)
+        await self._listener.send(msg)
 
     class CommandListener(CyclicBehaviour):
 
@@ -47,4 +46,5 @@ class TimeKeeperAgent(Agent):
         """Spade agent life-cycle called once at agent start
         """
         logger.info(f"[TimeKeeper Agent] -- TimeKeeper start as {self.jid}")
-        self.add_behaviour(self.CommandListener())
+        self._listener = self.CommandListener()
+        self.add_behaviour(self._listener)
