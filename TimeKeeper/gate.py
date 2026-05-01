@@ -129,4 +129,4 @@ class Gate:
                 await asyncio.sleep(0.25)
                 await self.set_led(0, 0, 0)
                 await asyncio.sleep(0.25)
-        await self.set_led(0, 255, 0)
+        await self.set_led(255, 255, 255)

@@ -1,0 +1,119 @@
+import asyncio
+import logging
+from typing import Awaitable, Callable
+
+from .gatePairer import find_two_gates, configure_pair_of_gates
+from .race_session import RaceSession
+
+logger = logging.getLogger("TimeKeeperCoordinator")
+
+SendFn = Callable[[str, str], Awaitable[None]]
+
+class TimeKeeperCoordinator:
+    """Coordinator : manage the full timekeeper process :
+        1 - handle commands from received XMPP messages
+        2 - handle gate and raceSession configuration
+        3 - handle time keeping and transmission
+    """
+
+    def __init__(self, send: SendFn):
+        self._send = send
+        # sessions dict structure: sender_jid -> {"race_session": RaceSession | None, "ready": asyncio.Event}
+        self.sessions: dict[str, dict] = {}
+
+    # command handlers
+    async def on_start(self, sender_jid: str) -> None:
+        """Register a new race session for the specific sender and launch gate pairing.
+
+        Args:
+            sender_jid (str): XMPP address of the Logger that initiated the race.
+        """
+        # check if sender already has a session
+        if sender_jid in self.sessions:
+            logger.warning(f"[Coordinator] Session already exists for {sender_jid} >> so, ignoring request...")
+            return
+        
+        self.sessions[sender_jid] = {"race_session": None, "ready": asyncio.Event()}
+        asyncio.create_task(self._pair_and_setup(sender_jid))
+
+    async def on_ready(self, sender_jid: str) -> None:
+        """Note that the sender's session is ready and try to start all active raceSessions (must have all been ready)
+
+        Args:
+            sender_jid (str): XMPP address of the Logger that signal being ready.
+        """
+        # Check that the sender possess a session
+        if sender_jid not in self.sessions:
+            logger.warning(f"[Coordinator] No session for {sender_jid} -- ignoring 'ready'")
+            return
+        
+        self.sessions[sender_jid]["ready"].set()
+        asyncio.create_task(self._launch_race())
+
+    # internal coroutines
+    async def _pair_and_setup(self, sender_jid: str) -> None:
+        """Scan, pair gates, create a RaceSession and then notify the sender."""
+        logger.info(f"[Coordinator] -- Starting pairing for {sender_jid}...")
+
+        pair  = await find_two_gates()
+        gates = await configure_pair_of_gates(pair)
+
+        session = RaceSession(
+            session_id = len(self.sessions),
+            start_gate = gates[0],
+            end_gate   = gates[1],
+        )
+
+        async def on_event(event: str, s: RaceSession) -> None:
+            if event != "race_finish":
+                return
+            await asyncio.gather(
+                self._send(sender_jid, f"The race is finished! Your race time is: {s.time:.3f}s"),
+                s.end_gate.finish_blink(),
+            )
+            logger.info(f"[Coordinator] -- Race done for {sender_jid}: {s.time:.3f}s")
+            await s.stop()
+            self.sessions.pop(sender_jid, None)
+
+        session.subscribe(on_event)
+        self.sessions[sender_jid]["race_session"] = session
+
+        await self._send(sender_jid, f"paired start:{gates[0].color} end:{gates[1].color}")
+        logger.info(f"[Coordinator] Pairing done -- {sender_jid} can now send 'ready'")
+
+        # "ready" may have arrived while pairing was running -- re-check the barrier
+        if self.sessions[sender_jid]["ready"].is_set():
+            asyncio.create_task(self._launch_race())
+
+    async def _launch_race(self) -> None:
+        """Try to start races in all active sessions
+        """
+        # Check that all sessions exists and are ready
+        for value in self.sessions.values():
+            if value["race_session"] is None or not value["ready"].is_set():
+                return
+
+        sender_jids  = list(self.sessions.keys())
+        session_list = [e["race_session"]
+                         for e in self.sessions.values()]
+
+        logger.info(f"[Coordinator] Every {len(session_list)} session ready —>> launching the race")
+
+        start_gates = [e["race_session"].start_gate
+                        for e in self.sessions.values()]
+
+        async def _countdown():
+            """Countdown messages sent to the loggers having active session
+            """
+            for count in ("3", "2", "1", "Go !!!"):
+                await asyncio.gather(*[self._send(jid, count) for jid in sender_jids])
+                await asyncio.sleep(1)
+
+        # run in parallel
+        await asyncio.gather(
+            _countdown(),
+            *[gate.starting_blink() 
+              for gate in start_gates],
+        )
+
+        await asyncio.gather(*[s.start() for s in session_list])

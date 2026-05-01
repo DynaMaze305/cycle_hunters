@@ -23,7 +23,6 @@ class TimeKeeperAgent(Agent):
         super().__init__(jid, password, verify_security=verify_security)
         self.coordinator = TimeKeeperCoordinator(send=self._send_message)
 
-    # SpadeRunner\src\common\camera_client.py
     async def _send_message(self, recipient: str, body: str) -> None:
         """Send message async to a specific recipient
         """
@@ -41,6 +40,12 @@ class TimeKeeperAgent(Agent):
             body   = msg.body.strip()
             logger.info(f"[TimeKeeper Agent] -- Recieved : '{body}' from {sender}")
 
+            if body == "Hello TimeKeeper ! Please initialise a race.":
+                await self.agent.coordinator.on_start(sender)
+            elif body == "I'm ready to race !":
+                await self.agent.coordinator.on_ready(sender)
+            else:
+                logger.warning(f"[TimeKeeper Agent] -- Unknown recieved message: '{body}' from {sender}")
 
     async def setup(self) -> None:
         """Spade agent life-cycle called once at agent start
