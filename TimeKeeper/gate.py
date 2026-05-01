@@ -17,6 +17,8 @@ class Gate:
     async def connect(self) -> None:
         """Connect to the gate and observe IR and button state
         """
+        if self._client.is_connected:
+            return
         await self._client.connect()
         await self._client.start_notify(IR_CHAR_UUID,     lambda _, data: self._on_ir(data))
         await self._client.start_notify(BUTTON_CHAR_UUID, lambda _, data: self._on_button(data))
