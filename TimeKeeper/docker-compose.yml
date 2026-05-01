@@ -1,0 +1,11 @@
+services:
+  timekeeper:
+    build: .
+    network_mode: host
+    privileged: true
+    tty: true
+    volumes:
+      - /var/run/dbus:/var/run/dbus   # D-Bus socket for BlueZ
+    env_file:
+      - .env
+    restart: unless-stopped
