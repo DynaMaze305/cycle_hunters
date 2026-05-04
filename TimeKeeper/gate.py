@@ -1,13 +1,13 @@
 import asyncio
-from bleak import BleakClient
+from bleak import BleakClient, BLEDevice
 
 BUTTON_CHAR_UUID = "794F1fE3-9BE8-4875-83BA-731E1037A881"
 LED_CHAR_UUID    = "794F1fE3-9BE8-4875-83BA-731E1037A882"
 IR_CHAR_UUID     = "794F1fE3-9BE8-4875-83BA-731E1037A883"
 
 class Gate:
-    def __init__(self, address: str, role: str, color: str):
-        self.address = address
+    def __init__(self, address: BLEDevice, role: str, color: str):
+        self.address = address.address
         self.role    = role
         self.color   = color
         self._client  = BleakClient(address)
@@ -117,6 +117,7 @@ class Gate:
             await asyncio.sleep(0.2)
             await self.set_led(0, 0, 0)
             await asyncio.sleep(0.2)
+            await self.set_led(255,255,255)
 
     async def starting_blink(self) -> None:
         """Start LED sequence

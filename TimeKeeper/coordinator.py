@@ -79,41 +79,47 @@ class TimeKeeperCoordinator:
             logger.info(f"[Coordinator] -- Pairing busy, {sender_jid} is queued")
             await self._send(sender_jid, "A pairing is already in progress. Please wait...")
 
-        # 1rst launching the pairing process acquier the lock
-        async with self._pairing_lock:
-            if in_waiting_line:
-                logger.info(f"[Coordinator] -- It's now {sender_jid}'s turn to pair")
-                await self._send(sender_jid, "The pairing for your gates is now starting...")
+        try:
+            # 1rst one launching the pairing process acquier the lock
+            async with self._pairing_lock:
+                if in_waiting_line:
+                    logger.info(f"[Coordinator] -- It's now {sender_jid}'s turn to pair")
+                    await self._send(sender_jid, "The pairing for your gates is now starting...")
 
-            pair  = await find_two_gates()
-            gates = await configure_pair_of_gates(pair)
+                pair  = await find_two_gates()
+                gates = await configure_pair_of_gates(pair)
 
-        session = RaceSession(
-            session_id = session_id,
-            start_gate = gates[0],
-            end_gate   = gates[1],
-        )
+            session = RaceSession(
+                session_id = session_id,
+                start_gate = gates[0],
+                end_gate   = gates[1],
+            )
 
-        async def on_event(event: str, raceSession: RaceSession) -> None:
-            """Save race time, and stop raceSession at race end.
-            """
-            if event != "race_finish":
-                return
-            individual_time = raceSession.time
-            self.sessions.pop(sender_jid)["result"].set_result(individual_time)
-            await raceSession.end_gate.finish_blink()
-            logger.info(f"[Coordinator] -- Race done for {sender_jid}: {individual_time:.3f}s")
-            await raceSession.stop()
+            async def on_event(event: str, raceSession: RaceSession) -> None:
+                """Save race time, and stop raceSession at race end.
+                """
+                if event != "race_finish":
+                    return
+                individual_time = raceSession.time
+                self.sessions.pop(sender_jid)["result"].set_result(individual_time)
+                await raceSession.end_gate.finish_blink()
+                logger.info(f"[Coordinator] -- Race done for {sender_jid}: {individual_time:.3f}s")
+                await raceSession.stop()
 
-        session.subscribe(on_event)
-        self.sessions[sender_jid]["race_session"] = session
+            session.subscribe(on_event)
+            self.sessions[sender_jid]["race_session"] = session
 
-        await self._send(sender_jid, f"paired start:{gates[0].color} end:{gates[1].color}")
-        logger.info(f"[Coordinator] Pairing done -- {sender_jid} can now send 'ready'")
+            await self._send(sender_jid, f"paired start:{gates[0].color} end:{gates[1].color}")
+            logger.info(f"[Coordinator] Pairing done -- {sender_jid} can now send 'ready'")
 
-        # "ready" may have arrived while pairing was running -- re-check the barrier
-        if self.sessions[sender_jid]["ready"].is_set():
-            asyncio.create_task(self._launch_race())
+            # "ready" could have arrived while pairing was running
+            if self.sessions[sender_jid]["ready"].is_set():
+                asyncio.create_task(self._launch_race())
+
+        except Exception as error:
+            logger.error(f"[Coordinator] -- Pairing failed for {sender_jid}: {error}")
+            self.sessions.pop(sender_jid, None)
+            await self._send(sender_jid, f"Pairing failed: {error}")
 
     async def _launch_race(self) -> None:
         """Try to start races in all active sessions"""
@@ -130,6 +136,11 @@ class TimeKeeperCoordinator:
             results = [self.sessions[jid]["result"] for jid in sender_jids]
 
             logger.info("[Coordinator] Every session are ready : launching the race")
+
+            await asyncio.gather(*[
+                self._send(jid, f"Your competitor is: {next((j for j in sender_jids if j != jid), 'solo run')}")
+                for jid in sender_jids
+            ])
 
             global_race_start_time: float = 0.0
 
@@ -154,8 +165,8 @@ class TimeKeeperCoordinator:
                 self._send(jid, f"Total race time: {total_time:.3f}s") for jid in sender_jids])
             
             await asyncio.gather(*[
-                self._send(jid, f"The race is finished! Your race time is: {t:.3f}s")
-                for jid, t in zip(sender_jids, individual_times)
+                self._send(jid, f"The race is finished! Your race time is: {time:.3f}s")
+                for jid, time in zip(sender_jids, individual_times)
             ])
 
             await asyncio.sleep(3)
