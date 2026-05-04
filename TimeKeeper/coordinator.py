@@ -20,6 +20,7 @@ class TimeKeeperCoordinator:
         self._send = send
         # sessions dict structure: sender_jid -> {"race_session": RaceSession | None, "ready": asyncio.Event}
         self.sessions: dict[str, dict] = {}
+        self._pairing_lock = asyncio.Lock()
 
     # command handlers
     async def on_start(self, sender_jid: str) -> None:
@@ -62,8 +63,20 @@ class TimeKeeperCoordinator:
         """Scan, pair gates, create a RaceSession and then notify the sender."""
         logger.info(f"[Coordinator] -- Starting pairing for {sender_jid}...")
 
-        pair  = await find_two_gates()
-        gates = await configure_pair_of_gates(pair)
+        in_waiting_line = self._pairing_lock.locked()
+        # True if pairing already in progress from another Logger
+        if in_waiting_line:
+            logger.info(f"[Coordinator] -- Pairing busy, {sender_jid} is queued")
+            await self._send(sender_jid, "A pairing is already in progress. Please wait...")
+
+        # 1rst launching the pairing process acquier the lock
+        async with self._pairing_lock:
+            if in_waiting_line:
+                logger.info(f"[Coordinator] -- It's now {sender_jid}'s turn to pair")
+                await self._send(sender_jid, "The pairing for your gates is now starting...")
+
+            pair  = await find_two_gates()
+            gates = await configure_pair_of_gates(pair)
 
         session = RaceSession(
             session_id = len(self.sessions),
