@@ -8,7 +8,6 @@ from .coordinator import TimeKeeperCoordinator
 
 logger = logging.getLogger("TimeKeeperAgent")
 
-
 class TimeKeeperAgent(Agent):
     """TimeKeeper Spade Agent
     """
@@ -36,7 +35,7 @@ class TimeKeeperAgent(Agent):
             if not msg:
                 return
 
-            sender = str(msg.sender)
+            sender = str(msg.sender.bare())
             body   = msg.body.strip()
             logger.info(f"[TimeKeeper Agent] -- Recieved : '{body}' from {sender}")
 
