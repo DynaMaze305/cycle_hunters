@@ -50,6 +50,13 @@ class TimeKeeperCoordinator:
         self.sessions[sender_jid]["ready"].set()
         asyncio.create_task(self._launch_race())
 
+        # To inform the 1rst team to announce ready that the opponent one isn't, explaining why they wait
+        waiting_for = [jid for jid,
+                       value in self.sessions.items() 
+                            if not value["ready"].is_set()]
+        if waiting_for:
+            await self._send(sender_jid, "Waiting for the other team to announce themselve as ready to race...")
+
     # internal coroutines
     async def _pair_and_setup(self, sender_jid: str) -> None:
         """Scan, pair gates, create a RaceSession and then notify the sender."""
