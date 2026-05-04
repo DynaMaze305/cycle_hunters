@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Awaitable, Callable
 
 from .gatePairer import find_two_gates, configure_pair_of_gates
@@ -18,9 +19,12 @@ class TimeKeeperCoordinator:
 
     def __init__(self, send: SendFn):
         self._send = send
-        # sessions dict structure: sender_jid -> {"race_session": RaceSession | None, "ready": asyncio.Event}
+        # sessions dict structure: sender_jid -> {"race_session": RaceSession | None,
+        #                                         "ready": asyncio.Event,
+        #                                         "result": asyncio.Future}
         self.sessions: dict[str, dict] = {}
         self._pairing_lock = asyncio.Lock()
+        self._launch_lock  = asyncio.Lock()
 
     # command handlers
     async def on_start(self, sender_jid: str) -> None:
@@ -34,8 +38,14 @@ class TimeKeeperCoordinator:
             logger.warning(f"[Coordinator] Session already exists for {sender_jid} >> so, ignoring request...")
             return
         
-        self.sessions[sender_jid] = {"race_session": None, "ready": asyncio.Event()}
-        asyncio.create_task(self._pair_and_setup(sender_jid))
+        session_id = len(self.sessions)
+
+        loop = asyncio.get_running_loop()
+        self.sessions[sender_jid] = {"race_session": None, 
+                                     "ready": asyncio.Event(), 
+                                     "result": loop.create_future()}
+
+        asyncio.create_task(self._pair_and_setup(sender_jid, session_id))
 
     async def on_ready(self, sender_jid: str) -> None:
         """Note that the sender's session is ready and try to start all active raceSessions (must have all been ready)
@@ -51,7 +61,7 @@ class TimeKeeperCoordinator:
         self.sessions[sender_jid]["ready"].set()
         asyncio.create_task(self._launch_race())
 
-        # To inform the 1rst team to announce ready that the opponent one isn't, explaining why they wait
+        # To inform the 1rst team to announce ready that the opponent one isn't and explaining why they wait
         waiting_for = [jid for jid,
                        value in self.sessions.items() 
                             if not value["ready"].is_set()]
@@ -59,7 +69,7 @@ class TimeKeeperCoordinator:
             await self._send(sender_jid, "Waiting for the other team to announce themselve as ready to race...")
 
     # internal coroutines
-    async def _pair_and_setup(self, sender_jid: str) -> None:
+    async def _pair_and_setup(self, sender_jid: str, session_id: int) -> None:
         """Scan, pair gates, create a RaceSession and then notify the sender."""
         logger.info(f"[Coordinator] -- Starting pairing for {sender_jid}...")
 
@@ -79,21 +89,21 @@ class TimeKeeperCoordinator:
             gates = await configure_pair_of_gates(pair)
 
         session = RaceSession(
-            session_id = len(self.sessions),
+            session_id = session_id,
             start_gate = gates[0],
             end_gate   = gates[1],
         )
 
-        async def on_event(event: str, s: RaceSession) -> None:
+        async def on_event(event: str, raceSession: RaceSession) -> None:
+            """Save race time, and stop raceSession at race end.
+            """
             if event != "race_finish":
                 return
-            await asyncio.gather(
-                self._send(sender_jid, f"The race is finished! Your race time is: {s.time:.3f}s"),
-                s.end_gate.finish_blink(),
-            )
-            logger.info(f"[Coordinator] -- Race done for {sender_jid}: {s.time:.3f}s")
-            await s.stop()
-            self.sessions.pop(sender_jid, None)
+            individual_time = raceSession.time
+            self.sessions.pop(sender_jid)["result"].set_result(individual_time)
+            await raceSession.end_gate.finish_blink()
+            logger.info(f"[Coordinator] -- Race done for {sender_jid}: {individual_time:.3f}s")
+            await raceSession.stop()
 
         session.subscribe(on_event)
         self.sessions[sender_jid]["race_session"] = session
@@ -106,34 +116,47 @@ class TimeKeeperCoordinator:
             asyncio.create_task(self._launch_race())
 
     async def _launch_race(self) -> None:
-        """Try to start races in all active sessions
-        """
-        # Check that all sessions exists and are ready
-        for value in self.sessions.values():
-            if value["race_session"] is None or not value["ready"].is_set():
-                return
+        """Try to start races in all active sessions"""
+        if self._launch_lock.locked():
+            return
+        async with self._launch_lock:
+            for value in self.sessions.values():
+                if value["race_session"] is None or not value["ready"].is_set():
+                    return
 
-        sender_jids  = list(self.sessions.keys())
-        session_list = [e["race_session"]
-                         for e in self.sessions.values()]
+            sender_jids    = list(self.sessions.keys())
+            session_list   = [values["race_session"] for values in self.sessions.values()]
+            start_gates    = [values["race_session"].start_gate for values in self.sessions.values()]
+            results = [self.sessions[jid]["result"] for jid in sender_jids]
 
-        logger.info(f"[Coordinator] Every {len(session_list)} session ready —>> launching the race")
+            logger.info("[Coordinator] Every session are ready : launching the race")
 
-        start_gates = [e["race_session"].start_gate
-                        for e in self.sessions.values()]
+            global_race_start_time: float = 0.0
 
-        async def _countdown():
-            """Countdown messages sent to the loggers having active session
-            """
-            for count in ("3", "2", "1", "Go !!!"):
-                await asyncio.gather(*[self._send(jid, count) for jid in sender_jids])
-                await asyncio.sleep(1)
+            async def _countdown():
+                nonlocal global_race_start_time
+                for count in ("3", "2", "1", "Go !!!"):
+                    await asyncio.gather(*[self._send(jid, count) for jid in sender_jids])
+                    if count == "Go !!!":
+                        global_race_start_time = time.monotonic()
+                    else:
+                        await asyncio.sleep(1)
 
-        # run in parallel
-        await asyncio.gather(
-            _countdown(),
-            *[gate.starting_blink() 
-              for gate in start_gates],
-        )
+            await asyncio.gather(_countdown(), *[gate.starting_blink() for gate in start_gates])
+            await asyncio.gather(*[raceSession.start() for raceSession in session_list])
 
-        await asyncio.gather(*[s.start() for s in session_list])
+            individual_times: list[float] = list(await asyncio.gather(*results))
+
+            total_time = time.monotonic() - global_race_start_time
+            logger.info(f"[Coordinator] Total race time: {total_time:.3f}s")
+
+            await asyncio.gather(*[
+                self._send(jid, f"Total race time: {total_time:.3f}s") for jid in sender_jids])
+            
+            await asyncio.gather(*[
+                self._send(jid, f"The race is finished! Your race time is: {t:.3f}s")
+                for jid, t in zip(sender_jids, individual_times)
+            ])
+
+            await asyncio.sleep(3)
+            logger.info("[Coordinator] Race complete — all sessions closed, waiting for new connections to start a new race")
