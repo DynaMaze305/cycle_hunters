@@ -2,3 +2,4 @@
 TimeKeeper/tests/__pycache__/*
 TimeKeeper/__pycache__/*
 TimeKeeper/.env
+TimeKeeper/tests/*
