@@ -25,6 +25,7 @@ class TimeKeeperCoordinator:
         self.sessions: dict[str, dict] = {}
         self._pairing_lock = asyncio.Lock()
         self._launch_lock  = asyncio.Lock()
+        self._race_start_time: float = 0.0
 
     # command handlers
     async def on_start(self, sender_jid: str) -> None:
@@ -137,19 +138,16 @@ class TimeKeeperCoordinator:
 
             logger.info("[Coordinator] Every session are ready : launching the race")
 
-            await asyncio.gather(*[
-                self._send(jid, f"Your competitor is: {next((j for j in sender_jids if j != jid), 'solo run')}")
-                for jid in sender_jids
-            ])
-
-            global_race_start_time: float = 0.0
+            for jid in sender_jids:
+                others = [j for j in sender_jids if j != jid]
+                competitor = others[0] if others else "solo run"
+                await self._send(jid, f"Your competitor is: {competitor}")
 
             async def _countdown():
-                nonlocal global_race_start_time
                 for count in ("3", "2", "1", "Go !!!"):
                     await asyncio.gather(*[self._send(jid, count) for jid in sender_jids])
                     if count == "Go !!!":
-                        global_race_start_time = time.monotonic()
+                        self._race_start_time = time.monotonic()
                     else:
                         await asyncio.sleep(1)
 
@@ -158,7 +156,7 @@ class TimeKeeperCoordinator:
 
             individual_times: list[float] = list(await asyncio.gather(*results))
 
-            total_time = time.monotonic() - global_race_start_time
+            total_time = time.monotonic() - self._race_start_time
             logger.info(f"[Coordinator] Total race time: {total_time:.3f}s")
 
             await asyncio.gather(*[

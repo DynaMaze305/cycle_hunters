@@ -8,6 +8,9 @@ from .coordinator import TimeKeeperCoordinator
 
 logger = logging.getLogger("TimeKeeperAgent")
 
+CMD_START = "Hello TimeKeeper ! Please initialise a race."
+CMD_READY = "I'm ready to race !"
+
 class TimeKeeperAgent(Agent):
     """TimeKeeper Spade Agent
     """
@@ -39,9 +42,9 @@ class TimeKeeperAgent(Agent):
             body   = msg.body.strip()
             logger.info(f"[TimeKeeper Agent] -- Recieved : '{body}' from {sender}")
 
-            if body == "Hello TimeKeeper ! Please initialise a race.":
+            if body == CMD_START:
                 await self.agent.coordinator.on_start(sender)
-            elif body == "I'm ready to race !":
+            elif body == CMD_READY:
                 await self.agent.coordinator.on_ready(sender)
             else:
                 logger.warning(f"[TimeKeeper Agent] -- Unknown recieved message: '{body}' from {sender}")
