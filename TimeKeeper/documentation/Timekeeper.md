@@ -50,12 +50,28 @@ Après discussions avec Mr. Calvaresi, les modalités suivantes ont été conclu
 docker compose up --build
 ```
 
-### Protocole XMPP — messages exacts acceptés TimeKeeper
+### Protocole XMPP
+
+#### messages exacts acceptés TimeKeeper
 
 | Message envoyé au TimeKeeper | Effet |
 |------------------------------|-------|
-| `Hello TimeKeeper ! Please initialise a race.` | Démarre une session, lance le scan BLE et le pairing |
-| `I'm ready to race !` | Marque la session comme prête ; lance la course dès que toutes les équipes sont prêtes |
+| `Hello TimeKeeper ! Please initialise a race.` | Démarre une session, lance le scan BLE et la phase d'appariement |
+| `I'm ready to race !` | Marque le concurrent (session) comme prête ; lance la course dès que toutes les concurrents sont prêts |
+
+#### messages exacts envoyés par TimeKeeper
+
+| Message envoyé par TimeKeeper | Raison |
+|-------------------------------|--------|
+| `A pairing is already in progress. Please wait...` | Un appariement des portes BLE est déjà en cours par un autre Logger|
+| `The pairing for your gates is now starting...` | La file d'attente de la phase d'appariement est libre |
+| `paired start:{color} end:{color}` | Phase d'appariement réussi + donne la couleur et rôle des portiques |
+| `Pairing failed: {error}` | Erreur survenue lors la phase d'appariement |
+| `Waiting for the other team to announce themselve as ready to race...` | Le Logger s'est annoncé 'ready', mais un autre compétiteur ne l'est pas encore |
+| `Your competitor is: {jid}` (ou `solo run`) | Annonce l'adversaire (JID) à chaque compétiteur avant le départ |
+| `3` / `2` / `1` / `Go !!!` | Séquence de compte à rebours envoyée séquentiellement à tous les concurrents |
+| `Total race time: {time:.3f}s` | Temps total de course envoyé à tous les compétiteurs à la fin de la course (lorsque le dernier concurrent à franchi la ligne d'arrivée) |
+| `The race is finished! Your race time is: {time:.3f}s` | Temps personnel envoyé à chaque concurrent à la fin de sa course |
 
 ## Données des portiques
 *Tiré des [slides fournies](https://isc.hevs.ch/learn/pluginfile.php/7945/mod_resource/content/0/05%20Introduction%20to%20Bluetooth%20LE.pdf)*
