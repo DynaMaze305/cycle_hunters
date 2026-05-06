@@ -37,8 +37,8 @@ class RaceSession:
         for cb in self._observers:
             result = cb(event, self)
 
-            if asyncio.iscoroutine(result):
-                asyncio.create_task(result)
+            if asyncio.iscoroutine(return_value):
+                asyncio.create_task(return_value)
 
     async def start(self) -> None:
         """Connect gates and launch the time loop"""

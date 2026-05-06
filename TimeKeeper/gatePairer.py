@@ -71,23 +71,24 @@ async def configure_pair_of_gates(pair: list[BLEDevice]) -> list[Gate]:
     logger.info(f"[gatePairer] -- Connected to {gates[0].address} & {gates[1].address}")
 
     # Pairing blink
-    flash_tasks = [asyncio.create_task(gate.pairing_blink()) 
-                        for gate in gates]
+    flash_tasks: dict[Gate, asyncio.Task] = {
+        gate: asyncio.create_task(gate.pairing_blink()) for gate in gates
+    }
     logger.info("[gatePairer] -- Press the button on the start_gate, then end_gate")
 
     # Assign roles in order of button press
     # https://stackoverflow.com/questions/71958008/asyncio-wait-process-results-as-they-come
     gatesPair: list[Gate] = []
-    pending: dict[asyncio.Task, Gate] = {asyncio.create_task(gate.wait_pressed()): gate 
+    pending: dict[asyncio.Task, Gate] = {asyncio.create_task(gate.wait_pressed()): gate
                                             for gate in gates}
 
     for role, color in zip(ROLES, COLORS):
         done, _ = await asyncio.wait(pending.keys(), return_when=asyncio.FIRST_COMPLETED)
-        press_task = next(iter(done))
+        [press_task] = done
         gate = pending.pop(press_task)
 
         # stop "gracefully" the white blinking
-        flash_task = flash_tasks[gates.index(gate)]
+        flash_task = flash_tasks[gate]
         flash_task.cancel()
         try:
             await flash_task
