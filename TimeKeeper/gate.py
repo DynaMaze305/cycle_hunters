@@ -19,7 +19,16 @@ class Gate:
         """
         if self._client.is_connected:
             return
-        await self._client.connect()
+        # Retry if scan if progress block connection
+        for attempt in range(3):
+            try:
+                await self._client.connect()
+                break
+            except Exception as e:
+                if "InProgress" in str(e) and attempt < 2:
+                    await asyncio.sleep(1)
+                else:
+                    raise
         await self._client.start_notify(IR_CHAR_UUID,     lambda _, data: self._on_ir(data))
         await self._client.start_notify(BUTTON_CHAR_UUID, lambda _, data: self._on_button(data))
 
