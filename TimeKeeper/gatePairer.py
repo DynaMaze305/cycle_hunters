@@ -47,10 +47,10 @@ async def find_two_gates(timeout: float = 5.0) -> list[BLEDevice]:
         except asyncio.TimeoutError:
             raise TimeoutError(f"Only {len(portics)}/2 gates found after {timeout}s")
 
-    pair_to_configure = list(portics.values())[:2]
-    logger.debug(f"[gatePairer] -- Using: {pair_to_configure[0].address} & {pair_to_configure[1].address}")
+    pair = list(portics.values())[:2]
+    logger.debug(f"[gatePairer] -- Using: {pair[0].address} & {pair[1].address}")
 
-    return pair_to_configure
+    return pair
 
 async def configure_pair_of_gates(pair: list[BLEDevice]) -> list[Gate]:
     """Pair of gates configuration process - working both in parallel
@@ -78,7 +78,7 @@ async def configure_pair_of_gates(pair: list[BLEDevice]) -> list[Gate]:
 
     # Assign roles in order of button press
     # https://stackoverflow.com/questions/71958008/asyncio-wait-process-results-as-they-come
-    gatesPair: list[Gate] = []
+    configured_gates: list[Gate] = []
     pending: dict[asyncio.Task, Gate] = {asyncio.create_task(gate.wait_pressed()): gate
                                             for gate in gates}
 
@@ -101,8 +101,8 @@ async def configure_pair_of_gates(pair: list[BLEDevice]) -> list[Gate]:
         r, g, b = LEDS[color]
         await gate.set_led(r, g, b)
 
-        gatesPair.append(gate)
+        configured_gates.append(gate)
         logger.info(f"[gatePairer] -- {role}_gate assigned: {gate.address} -> {color}")
 
-    return gatesPair
+    return configured_gates
 
