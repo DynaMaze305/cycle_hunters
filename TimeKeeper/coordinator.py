@@ -146,13 +146,15 @@ class TimeKeeperCoordinator:
                 await self._send(jid, f"Your competitor is: {competitor}")
 
             async def _countdown():
+                """Countdown procedure - LED blinking and messages to competitors
+                """
                 for count in ("3", "2", "1", "Go !!!"):
                     await asyncio.gather(*[self._send(jid, count) for jid in sender_jids])
                     if count == "Go !!!":
                         self._race_start_time = time.monotonic()
                     else:
                         await asyncio.sleep(1)
-
+            
             await asyncio.gather(_countdown(), *[gate.starting_blink() for gate in start_gates])
             await asyncio.gather(*[raceSession.start() for raceSession in session_list])
 
@@ -161,13 +163,14 @@ class TimeKeeperCoordinator:
             total_time = time.monotonic() - self._race_start_time
             logger.info(f"[Coordinator] Total race time: {total_time:.3f}s")
 
-            await asyncio.gather(*[
-                self._send(jid, f"Total race time: {total_time:.3f}s") for jid in sender_jids])
-            
+            # send individual time race
             await asyncio.gather(*[
                 self._send(jid, f"The race is finished! Your race time is: {time:.3f}s")
                 for jid, time in zip(sender_jids, individual_times)
             ])
-
+            # send global race time
+            await asyncio.gather(*[
+                self._send(jid, f"Total race time: {total_time:.3f}s") for jid in sender_jids])
+            
             await asyncio.sleep(3)
             logger.info("[Coordinator] Race complete — all sessions closed, waiting for new connections to start a new race")
