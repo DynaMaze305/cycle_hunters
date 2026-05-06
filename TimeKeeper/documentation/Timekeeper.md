@@ -21,14 +21,16 @@ Après discussions avec Mr. Calvaresi, les modalités suivantes ont été conclu
 1. Logger envoie `Hello TimeKeeper ! Please initialise a race.`
 2. TimeKeeper scanne les portiques BLE et les mets en mode appariements
     -  Lorsque les portiques clignotent en blanc, pressez successivement leur bouton pour définir leur rôle (ler = start, 2ème = end)
-3. TimeKeeper confirme le processus et envoi `paired start:{color} end:{color}`
-4. Quand on souhaite démarrer la course :  Logger envoie `I'm ready to race !`
-5. Dès que toutes les équipes sont prêtes, le TimeKeeper déclenchent le compte à rebours
-6. Le chrono de temps de course total se déclenche lorsque le `Go!!` est envoyé
-7. Les chronos individuels se déclenche au moment ou le laser du départ est coupé
-8. Les chronos individuels se terminent au momement ou le laser d'arrivé est coupé
-9. Le chrono de temps de cours total s'arrête au moment ou le dernier concurrent franchi la ligne 
-10. Le TimeKeeper envoie les chronos individuels et le chrono total à chaque concurent.
+3. TimeKeeper confirme le processus et envoie `Pairing succesful : start_gate = {color} & end_gate = {color}`
+4. Quand on souhaite démarrer la course : Logger envoie `I'm ready to race !`
+5. Dès que toutes les équipes sont prêtes, le TimeKeeper déclenche le compte à rebours
+6. Le chrono de temps de course total se déclenche lorsque le `Go!!!` est envoyé
+7. Les chronos individuels se déclenchent au moment où le laser du départ est coupé
+    - La `start_gate` clignote en **vert** pendant toute la durée de la course
+    - La `end_gate` s'allume en **blanc** pour signaler qu'elle est active
+8. Les chronos individuels se terminent au moment où le laser d'arrivée est coupé
+9. Le chrono de temps de course total s'arrête au moment où le dernier concurrent franchit la ligne
+10. Le TimeKeeper envoie les chronos individuels et le chrono total à chaque concurrent
 11. Les portes sont déconnectées
 
 ## Infrastructure XMPP
@@ -65,8 +67,9 @@ docker compose up --build
 |-------------------------------|--------|
 | `A pairing is already in progress. Please wait...` | Un appariement des portes BLE est déjà en cours par un autre Logger|
 | `The pairing for your gates is now starting...` | La file d'attente de la phase d'appariement est libre |
-| `paired start:{color} end:{color}` | Phase d'appariement réussi + donne la couleur et rôle des portiques |
-| `Pairing failed: {error}` | Erreur survenue lors la phase d'appariement |
+| `Pairing succesful : start_gate = {color} & end_gate = {color}` | Phase d'appariement réussie + donne la couleur et le rôle des portiques |
+| `Pairing failed: {error}` | Erreur survenue lors de la phase d'appariement (envoyé au Logger concerné) |
+| `A concurrent's pairing failed...` | Un appariement adverse a échoué — la course ne peut pas démarrer (envoyé aux autres Loggers) |
 | `Waiting for the other team to announce themselve as ready to race...` | Le Logger s'est annoncé 'ready', mais un autre compétiteur ne l'est pas encore |
 | `Your competitor is: {jid}` (ou `solo run`) | Annonce l'adversaire (JID) à chaque compétiteur avant le départ |
 | `3` / `2` / `1` / `Go !!!` | Séquence de compte à rebours envoyée séquentiellement à tous les concurrents |
