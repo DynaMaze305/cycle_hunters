@@ -2,10 +2,13 @@ services:
   timekeeper:
     build: .
     network_mode: host
+    extra_hosts:
+        - "isc-coordinator2.lan:192.168.88.226"
+        - "isc-coordinator1.lan:192.168.88.250"
     privileged: true
     tty: true
     volumes:
-      - /var/run/dbus:/var/run/dbus   # D-Bus socket for BlueZ
+      - /var/run/dbus:/var/run/dbus
     env_file:
       - .env
     restart: unless-stopped
