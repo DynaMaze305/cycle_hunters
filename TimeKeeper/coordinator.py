@@ -110,7 +110,7 @@ class TimeKeeperCoordinator:
             session.subscribe(on_event)
             self.sessions[sender_jid]["race_session"] = session
 
-            await self._send(sender_jid, f"paired start:{gates[0].color} end:{gates[1].color}")
+            await self._send(sender_jid, f"Pairing succesful : start_gate = {gates[0].color} & end_gate = {gates[1].color}")
             logger.info(f"[Coordinator] Pairing done -- {sender_jid} can now send 'ready'")
 
             # "ready" could have arrived while pairing was running
@@ -121,6 +121,8 @@ class TimeKeeperCoordinator:
             logger.error(f"[Coordinator] -- Pairing failed for {sender_jid}: {error}")
             self.sessions.pop(sender_jid, None)
             await self._send(sender_jid, f"Pairing failed: {error}")
+            for other_jid in self.sessions:
+                await self._send(other_jid, "A concurrent's pairing failed...")
 
     async def _launch_race(self) -> None:
         """Try to start races in all active sessions"""

@@ -35,7 +35,7 @@ class RaceSession:
     def _notify(self, event: str) -> None:
         """Dispatch an event to all observers"""
         for cb in self._observers:
-            result = cb(event, self)
+            return_value = cb(event, self)
 
             if asyncio.iscoroutine(return_value):
                 asyncio.create_task(return_value)
@@ -76,8 +76,17 @@ class RaceSession:
             logger.info(f"[RaceSession {self.session_id}] -- Race started")
             self._notify("race_start")
 
+            blink_task = asyncio.create_task(self.start_gate.running_blink())
+            await self.end_gate.set_led(255, 255, 255)
+
             # When end_gate is crossed -> end race
             await self.end_gate.wait_crossed()
+            blink_task.cancel()
+            try:
+                await blink_task
+            except asyncio.CancelledError:
+                pass
+
             self.time = time.monotonic() - t0
             self.state = RaceState.FINISHED
             logger.info(f"[RaceSession {self.session_id}] -- Race finished: {self.time:.3f}s")
