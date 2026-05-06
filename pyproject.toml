@@ -7,5 +7,5 @@ requires-python = ">=3.13"
 dependencies = [
     "bleak>=3.0.1",
     "pynput>=1.8.1",
-    "slixmpp==1.7.1",
+    "slixmpp>=1.8.0",
 ]
