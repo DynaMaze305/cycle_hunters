@@ -1,39 +1,32 @@
 import asyncio
+import logging
 from bleak import BleakClient, BLEDevice
 
 BUTTON_CHAR_UUID = "794F1fE3-9BE8-4875-83BA-731E1037A881"
 LED_CHAR_UUID    = "794F1fE3-9BE8-4875-83BA-731E1037A882"
 IR_CHAR_UUID     = "794F1fE3-9BE8-4875-83BA-731E1037A883"
 
+logger = logging.getLogger(__name__)
+
 class Gate:
-    def __init__(self, address: BLEDevice, role: str, color: str):
-        self.address = address.address
+    def __init__(self, devices: BLEDevice | str, role: str, color: str):
+        self.address = devices.address
+        self._device = devices
         self.role    = role
         self.color   = color
-        self._client  = BleakClient(address)
+        self._client  = BleakClient(self._device, timeout=20.0)
         self._crossed = asyncio.Event()
         self._pressed = asyncio.Event()
 
     async def connect(self) -> None:
-        """Connect to the gate and observe IR and button state
-        """
         if self._client.is_connected:
             return
-        # Retry if scan if progress block connection
-        for attempt in range(3):
-            try:
-                await self._client.connect()
-                break
-            except Exception as e:
-                if "InProgress" in str(e) and attempt < 2:
-                    await asyncio.sleep(1)
-                else:
-                    raise
+        await self._client.connect()
         await self._client.start_notify(IR_CHAR_UUID,     lambda _, data: self._on_ir(data))
         await self._client.start_notify(BUTTON_CHAR_UUID, lambda _, data: self._on_button(data))
 
     async def disconnect(self) -> None:
-        """Disconnet from the gate
+        """Disconnect from the gate
         """
         await self._client.stop_notify(IR_CHAR_UUID)
         await self._client.stop_notify(BUTTON_CHAR_UUID)
@@ -130,13 +123,6 @@ class Gate:
                          (255, 255, 0),
                          (255, 0, 255),
                          (0, 255, 255),
-                         (255, 255, 255),
-                         (255, 0, 0),
-                         (0, 255, 0),
-                         (0, 0, 255),
-                         (255, 255, 0),
-                         (255, 0, 255),
-                         (0, 255, 255),
                          (255, 255, 255),]:
 
             await self.set_led(r, g, b)
@@ -156,4 +142,4 @@ class Gate:
                 await asyncio.sleep(0.25)
                 await self.set_led(0, 0, 0)
                 await asyncio.sleep(0.25)
-        await self.set_led(0, 255, 0)
+        await self.set_led(255, 255, 255)
