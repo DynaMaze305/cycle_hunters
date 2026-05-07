@@ -19,7 +19,8 @@ for log_name in ["spade", "aioxmpp", "xmpp"]:
 
 
 TEST_PICK_POSITION = {"x": 0.0971, "y": -0.337}
-TEST_PLACE_POSITION = {"x": -0.149, "y": -0.315}
+# The place position is not used any more.
+TEST_PLACE_POSITION = {"x": -0.20, "y": -0.0}
 
 class TESTURAgent(Agent):
     class XMPPCommandListener(CyclicBehaviour):

@@ -38,6 +38,7 @@ def load_joint_env(name: str) -> Joint6D:
 
 UR_HOMEJ = load_joint_env("UR_HOMEJ")
 UR_WORK_POSEJ = load_joint_env("UR_WORK_POSEJ")
+UR_DROP_POSITION = load_joint_env("UR_DROP_POSITION")
 
 UR_ABOVE_DISTANCE = float(os.environ.get("UR_ABOVE_DISTANCE", "0.12"))
 UR_PICK_DISTANCE = float(os.environ.get("UR_PICK_DISTANCE", "0.09"))
@@ -57,8 +58,7 @@ class URAgent(Agent):
         pick <data>
             - Make the UR robot remove an object by launching the FSM, dimension in meters
             {
-                "pick": {"x": float, "y": flaot},
-                "place": {"x": float, "y": flaot},
+                "pick": {"x": float, "y": float},
             }
         """
         async def on_start(self):
@@ -106,12 +106,11 @@ class URAgent(Agent):
                     logger.error(f"RAW COMMAND: {repr(raw[1])}")
                     data = json.loads(raw[1])
                     pick = data["pick"]
-                    place = data["place"]
                 except Exception as e:
                     logger.error(f"Invalid message format: {e}")
                     await self.agent.send_error(self, msg, f"ur_robot invalid data {e}")
                     return
-                fsm = self.agent.URBasicGrab(self.ur_robot, msg, pick, place)
+                fsm = self.agent.URBasicGrab(self.ur_robot, msg, pick)
                 self.agent.behaviour = fsm
                 self.agent.add_behaviour(fsm)
 
@@ -119,7 +118,7 @@ class URAgent(Agent):
     # FSM BEHAVIOUR
     # -----------------------------
     class URBasicGrab(FSMBehaviour):
-        def __init__(self, ur_robot: ISCoin, msg: Message, pick: dict, place: dict):
+        def __init__(self, ur_robot: ISCoin, msg: Message, pick: dict):
             """
             Init the State machine to grab an object.
 
@@ -143,7 +142,6 @@ class URAgent(Agent):
 
             self.msg = msg
             self.pick = pick
-            self.place = place
 
             self.z_hover = os.environ.get("UR_ABOVE_DISTANCE", 0.25)
             self.z_table = os.environ.get("UR_PICK_DISTANCE", 0.10)
@@ -320,9 +318,9 @@ class URAgent(Agent):
                 await self.agent.behaviour.safe_call(self.agent.behaviour.gripper.close)
                 if self.agent.behaviour.error:
                     return
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(1.0)
                 self.agent.behaviour.picked = True
-                if self.agent.behaviour.gripper.hasDetectedObject():
+                if True:# self.agent.behaviour.gripper.hasDetectedObject():
                     self.set_next_state("lift_pick")
                 else:
                     self.set_next_state("grab_fallback")
@@ -369,13 +367,12 @@ class URAgent(Agent):
                 """
                 Move robot above the dropping place
                 """
-                x, y = self.agent.behaviour.place["x"], self.agent.behaviour.place["y"]
                 logger.info("[FSM] Moving above place")
-                await self.agent.behaviour.safe_call(self.agent.behaviour.ur_robot.movel, self.agent.behaviour._tcp(x, y, self.agent.behaviour.z_hover))
+                await self.agent.behaviour.safe_call(self.agent.behaviour.ur_robot.movej, UR_DROP_POSITION)
                 if self.agent.behaviour.error:
                     return
                 await asyncio.sleep(0.1)
-                self.set_next_state("descend_place")
+                self.set_next_state("release")
 
         class Release(State):
             """
@@ -389,7 +386,7 @@ class URAgent(Agent):
                 await self.agent.behaviour.safe_call(self.agent.behaviour.gripper.open)
                 if self.agent.behaviour.error:
                     return
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(1.0)
                 self.set_next_state("return_work_pose")
 
         class Finish(State):
@@ -453,7 +450,7 @@ class URAgent(Agent):
         body: str
             The message to broadcast.
         """
-        for jid in self.registers:
+        for jid in self.register_list:
             msg = Message(to=jid)
             msg.set_metadata("performative", "inform")
             msg.body = body
