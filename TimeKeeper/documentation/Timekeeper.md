@@ -39,7 +39,7 @@ Agent externe, commun pour les deux équipes, pour la gestion des chronos et des
 |-------------------------------|--------|
 | `A pairing is already in progress. Please wait...` | Un appariement des portes BLE est déjà en cours par un autre Logger|
 | `The pairing for your gates is now starting...` | La file d'attente de la phase d'appariement est libre |
-| `Pairing succesful : start_gate = {color} & end_gate = {color}` | Phase d'appariement réussie + donne la couleur et le rôle des portiques |
+| `Pairing successful !` | Phase d'appariement réussie + donne la couleur et le rôle des portiques |
 | `Pairing failed: {error}` | Erreur survenue lors de la phase d'appariement (envoyé au Logger concerné) |
 | `A concurrent's pairing failed...` | Un appariement adverse a échoué — la course ne peut pas démarrer (envoyé aux autres Loggers) |
 | `Waiting for the other team to announce themselve as ready to race...` | Le Logger s'est annoncé 'ready', mais un autre compétiteur ne l'est pas encore |
