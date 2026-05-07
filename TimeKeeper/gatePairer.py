@@ -28,7 +28,7 @@ async def gates_finder() -> list[Gate]:
     TimingNodes = []
 
     for i, device in enumerate(thingy[:2]):
-        gate = Gate(device, role="unknown", color="unknown")
+        gate = Gate(device, role="unknown")
         await gate.connect()
         logger.info(f"[gatePairer] Connected to gate {i+1} ({device.address})")
         TimingNodes.append(gate)
@@ -36,7 +36,7 @@ async def gates_finder() -> list[Gate]:
     return TimingNodes
 
 
-async def gates_configurator(gates: list[Gate]) -> list[Gate]:
+async def gates_configurator(gates: list[Gate], color_factor: int) -> list[Gate]:
     """Process to configure the gates (color and role)
 
     Args:
@@ -45,6 +45,12 @@ async def gates_configurator(gates: list[Gate]) -> list[Gate]:
     Returns:
         list[Gate]: list of the configured gates (start|end)
     """
+    palette = [
+        {"start": (0, 125, 125), "end": (125, 125, 0)},
+        {"start": (127, 0, 255), "end": (255, 165, 0)}
+    ]
+    color_pair = palette[color_factor % 2]
+    
     gate_a, gate_b = gates
 
     blink_a   = asyncio.create_task(gate_a.pairing_blink())
@@ -67,11 +73,15 @@ async def gates_configurator(gates: list[Gate]) -> list[Gate]:
     # Assign roles and colors
     start_gate, end_gate = (gate_a, gate_b) if pressed_a in done else (gate_b, gate_a)
 
-    start_gate.role, start_gate.color = "start", "turquoise"
-    end_gate.role, end_gate.color = "end", "olive"
+    start_gate.role = "start"
+    end_gate.role = "end"
 
-    await start_gate.set_led(0, 125, 125)
-    await end_gate.set_led(125, 125, 0)
+    # Apply colors
+    start_color = color_pair["start"]
+    end_color = color_pair["end"]
+    
+    await start_gate.set_led(*start_color)
+    await end_gate.set_led(*end_color)
 
     logger.info(f"[gatePairer] Configuration done -- Start gate: {start_gate.address} | End gate: {end_gate.address}")
     return [start_gate, end_gate]
