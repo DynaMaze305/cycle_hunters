@@ -1,108 +1,77 @@
 import asyncio
 import logging
-from bleak import BleakScanner, BLEDevice
+
+from bleak import BleakScanner
 from .gate import Gate
 
-logger = logging.getLogger("gatePairer")
+logger = logging.getLogger(__name__)
 
-BUTTON_CHAR_UUID = "794F1fE3-9BE8-4875-83BA-731E1037A881"
-LED_CHAR_UUID    = "794F1fE3-9BE8-4875-83BA-731E1037A882"
-PORTIC_NAME      = "Timing Node"
+SCAN_TIMEOUT = 5.0
 
-COLORS = ["orange", "purple"]
-LEDS = {
-    "orange":   b"\xFF\xA5\x00",
-    "purple":   b"\xFF\x00\xFF",
-}
-ROLES = ["start", "end"]
-
-
-async def find_two_gates(timeout: float = 5.0) -> list[BLEDevice]:
-    """Scan for BLE Thingy:52 and return the first two found
-
-    Args:
-        timeout (float, optional): Maximum scan time (s)
+async def gates_finder() -> list[Gate]:
+    """Find and connect to two Thingy:52 "Timing Node" BLE devices
 
     Raises:
-        TimeoutError: If fewer than two gates are found in the timeout
+        RuntimeError: if not enough Thingy:52 "Timing Node" found in the timeout
 
     Returns:
-        list[BLEDevice]: The paire of gates to use in a raceSession
+        list[Gate]: the two connected gates
     """
-    portics: dict[str, BLEDevice] = {}
-    two_found = asyncio.Event()
+    devices = await BleakScanner.discover(timeout=SCAN_TIMEOUT)
 
-    def on_detection(device: BLEDevice, _) -> None:
-        # if it's a Thingy:52 and not already found
-        if device.name == PORTIC_NAME and device.address not in portics:
-            portics[device.address] = device
-            logger.debug(f"[gatePairer] -- Found: {device.address} ({len(portics)}/2)")
+    thingy = [device for device in devices 
+             if device.name and "Timing" in device.name] # to avoid not named device and only recover timing node gate
+    
+    if len(thingy) < 2:
+        raise RuntimeError(f"Only {len(thingy)} gate thingy:52 found, 2 required...")
 
-            if len(portics) >= 2:
-                two_found.set()
+    TimingNodes = []
 
-    async with BleakScanner(detection_callback=on_detection):
-        try:
-            await asyncio.wait_for(two_found.wait(), timeout=timeout)
-        except asyncio.TimeoutError:
-            raise TimeoutError(f"Only {len(portics)}/2 gates found after {timeout}s")
+    for i, device in enumerate(thingy[:2]):
+        gate = Gate(device, role="unknown", color="unknown")
+        await gate.connect()
+        logger.info(f"[gatePairer] Connected to gate {i+1} ({device.address})")
+        TimingNodes.append(gate)
 
-    pair = list(portics.values())[:2]
-    logger.debug(f"[gatePairer] -- Using: {pair[0].address} & {pair[1].address}")
+    return TimingNodes
 
-    return pair
 
-async def configure_pair_of_gates(pair: list[BLEDevice]) -> list[Gate]:
-    """Pair of gates configuration process - working both in parallel
+async def gates_configurator(gates: list[Gate]) -> list[Gate]:
+    """Process to configure the gates (color and role)
 
     Args:
-        pair (list[BLEDevice]): the two gates to configure
+        gates (list[Gate]): list of connected gates
 
     Returns:
-        list[Gate]: [start_gate, end_gate]; connected and with the attributed LED color
+        list[Gate]: list of the configured gates (start|end)
     """
-    # to connect both gates in parallel
-    gates = [Gate(address=device, role="", color="") 
-                for device in pair]
+    gate_a, gate_b = gates
+
+    blink_a   = asyncio.create_task(gate_a.pairing_blink())
+    blink_b   = asyncio.create_task(gate_b.pairing_blink())
+    pressed_a = asyncio.create_task(gate_a.wait_pressed())
+    pressed_b = asyncio.create_task(gate_b.wait_pressed())
+
+    logger.info("[gatePairer] Press the button on the [start_gate] (thus the other will be [end_gate])")
+    # done = 1rst completed pressed task, pending = the second one
+    done, pending = await asyncio.wait([pressed_a, pressed_b], return_when=asyncio.FIRST_COMPLETED)
     
-    await asyncio.gather(*[gate.connect() 
-                            for gate in gates])
-    
-    logger.info(f"[gatePairer] -- Connected to {gates[0].address} & {gates[1].address}")
-
-    # Pairing blink
-    flash_tasks: dict[Gate, asyncio.Task] = {
-        gate: asyncio.create_task(gate.pairing_blink()) for gate in gates
-    }
-    logger.info("[gatePairer] -- Press the button on the start_gate, then end_gate")
-
-    # Assign roles in order of button press
-    # https://stackoverflow.com/questions/71958008/asyncio-wait-process-results-as-they-come
-    configured_gates: list[Gate] = []
-    pending: dict[asyncio.Task, Gate] = {asyncio.create_task(gate.wait_pressed()): gate
-                                            for gate in gates}
-
-    for role, color in zip(ROLES, COLORS):
-        done, _ = await asyncio.wait(pending.keys(), return_when=asyncio.FIRST_COMPLETED)
-        [press_task] = done
-        gate = pending.pop(press_task)
-
-        # stop "gracefully" the white blinking
-        flash_task = flash_tasks[gate]
-        flash_task.cancel()
+    # "gracefully" stop the tasks
+    for task in [blink_a, blink_b, *pending]:
+        task.cancel()
         try:
-            await flash_task
+            await task
         except asyncio.CancelledError:
             pass
 
-        # attribute role, color and set led color
-        gate.role  = role
-        gate.color = color
-        r, g, b = LEDS[color]
-        await gate.set_led(r, g, b)
+    # Assign roles and colors
+    start_gate, end_gate = (gate_a, gate_b) if pressed_a in done else (gate_b, gate_a)
 
-        configured_gates.append(gate)
-        logger.info(f"[gatePairer] -- {role}_gate assigned: {gate.address} -> {color}")
+    start_gate.role, start_gate.color = "start", "turquoise"
+    end_gate.role, end_gate.color = "end", "olive"
 
-    return configured_gates
+    await start_gate.set_led(0, 125, 125)
+    await end_gate.set_led(125, 125, 0)
 
+    logger.info(f"[gatePairer] Configuration done -- Start gate: {start_gate.address} | End gate: {end_gate.address}")
+    return [start_gate, end_gate]
