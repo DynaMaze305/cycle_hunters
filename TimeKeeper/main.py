@@ -3,6 +3,7 @@ import logging
 import os
 
 import colorlog
+from dotenv import load_dotenv
 from .agent import TimeKeeperAgent
 
 handler = colorlog.StreamHandler()
@@ -17,6 +18,7 @@ handler.setFormatter(colorlog.ColoredFormatter(
 logging.basicConfig(level=logging.INFO, handlers=[handler])
 
 async def main() -> None:
+    load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
     jid      = os.environ["XMPP_JID"]
     password = os.environ["XMPP_PASSWORD"]
 

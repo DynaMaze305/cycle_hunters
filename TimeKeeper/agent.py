@@ -3,7 +3,6 @@ import logging
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour
 from spade.message import Message
-
 from .coordinator import TimeKeeperCoordinator
 
 logger = logging.getLogger("TimeKeeperAgent")
@@ -12,8 +11,7 @@ CMD_START = "Hello TimeKeeper ! Please initialise a race."
 CMD_READY = "I'm ready to race !"
 
 class TimeKeeperAgent(Agent):
-    """TimeKeeper Spade Agent
-    """
+
     def __init__(self, jid: str, password: str, verify_security: bool = False):
         """Initialize the TimeKeeper SPADE agent.
 
@@ -32,13 +30,12 @@ class TimeKeeperAgent(Agent):
         await self._listener.send(msg)
 
     class CommandListener(CyclicBehaviour):
-
         async def run(self):
             msg = await self.receive(timeout=10)
             if not msg:
                 return
 
-            sender = str(msg.sender.bare())
+            sender = str(msg.sender).split("/")[0]
             body   = msg.body.strip()
             logger.info(f"[TimeKeeper Agent] -- Recieved : '{body}' from {sender}")
 
