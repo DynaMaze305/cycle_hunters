@@ -20,7 +20,6 @@ for log_name in ["spade", "aioxmpp", "xmpp"]:
 
 TEST_PICK_POSITION = {"x": 0.0971, "y": -0.337}
 # The place position is not used any more.
-TEST_PLACE_POSITION = {"x": -0.20, "y": -0.0}
 
 class TESTURAgent(Agent):
     class XMPPCommandListener(CyclicBehaviour):
@@ -49,10 +48,9 @@ class TESTURAgent(Agent):
 
     class TESTRequest(OneShotBehaviour):
         async def on_start(self):
-            self.to_agent = os.environ.get("UR_AGENT", "ur-alphabot23-agent@isc-coordinator2.lan")
+            self.to_agent = os.environ.get("UR_AGENT", "ur-agent@isc-coordinator2.lan")
             self.data = json.dumps({
-                "pick": TEST_PICK_POSITION,
-                "place": TEST_PLACE_POSITION
+                "pick": TEST_PICK_POSITION
             })
 
         async def run(self):
@@ -60,7 +58,7 @@ class TESTURAgent(Agent):
             reply.set_metadata("performative", "request")
             reply.body = f"pick {self.data}"
             await self.send(reply)
-            logger.info(f"[Behaviour] Sent rqiest {reply}")
+            logger.info(f"[Behaviour] Sent request {reply}")
             
 
 
