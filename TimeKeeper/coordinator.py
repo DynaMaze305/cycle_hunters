@@ -59,6 +59,7 @@ class TimeKeeperCoordinator:
         self._pairing_lock = asyncio.Lock()
         self._launch_lock  = asyncio.Lock()
         self._race_start_time: float = 0.0
+        self._pair_color : int = 0
 
     # command handlers
     async def on_start(self, sender_jid: str) -> None:
@@ -115,12 +116,13 @@ class TimeKeeperCoordinator:
                 await self._send(sender_jid, "The pairing for your gates is now starting...")
 
             gates = await gates_finder()
-            gates = await gates_configurator(gates)
+            gates = await gates_configurator(gates, self._pair_color)
+            self._pair_color +=1
 
         self.sessions[sender_jid].start_gate = gates[0]
         self.sessions[sender_jid].end_gate   = gates[1]
 
-        await self._send(sender_jid, f"Pairing succesful : start_gate = {gates[0].color} & end_gate = {gates[1].color}")
+        await self._send(sender_jid, "Pairing succesful !")
         logger.info(f"[Coordinator] Pairing done -- {sender_jid} can now send 'ready'")
 
         if self.sessions[sender_jid].ready.is_set():

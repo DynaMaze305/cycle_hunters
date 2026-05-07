@@ -9,11 +9,10 @@ IR_CHAR_UUID     = "794F1fE3-9BE8-4875-83BA-731E1037A883"
 logger = logging.getLogger(__name__)
 
 class Gate:
-    def __init__(self, devices: BLEDevice | str, role: str, color: str):
+    def __init__(self, devices: BLEDevice | str, role: str):
         self.address = devices.address
         self._device = devices
         self.role    = role
-        self.color   = color
         self._client  = BleakClient(self._device, timeout=20.0)
         self._crossed = asyncio.Event()
         self._pressed = asyncio.Event()

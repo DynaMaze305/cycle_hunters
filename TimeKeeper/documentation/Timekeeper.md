@@ -7,7 +7,7 @@ Agent externe, commun pour les deux équipes, pour la gestion des chronos et des
 1. Logger envoie `Hello TimeKeeper ! Please initialise a race.`
 2. TimeKeeper scanne les portiques BLE et les mets en mode appariements
     - Lorsque les portiques clignotent en blanc, pressez le bouton du portique qui doit être le `start_gate` (l'autre devient automatiquement le `end_gate`)
-    - La `start_gate` s'allume en **turquoise**, la `end_gate` en **olive** pour confirmer leur rôle
+    - La `start_gate` et la `end_gate` se colorie différement
 3. TimeKeeper confirme le processus et envoie `Pairing succesful : start_gate = turquoise & end_gate = olive`
 4. Quand on souhaite démarrer la course : Logger envoie `I'm ready to race !`
 5. Dès que toutes les équipes sont prêtes, le TimeKeeper déclenche le compte à rebours
