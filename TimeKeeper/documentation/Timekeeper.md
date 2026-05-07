@@ -1,27 +1,14 @@
 # Timekeeper
 
-Agent externe, hosté sur le raspberry Pi `coordinator`, pour la gestion des chronos et des portiques BLE
+Agent externe, commun pour les deux équipes, pour la gestion des chronos et des portiques BLE
 
-## Règles concernant la BLE
-
-Après discussions avec Mr. Calvaresi, les modalités suivantes ont été conclues :
-
-- les portiques seront positionnées dans des culs-de-sac
-- Si un robot trigger le mauvais portique de fin -> disqualification
-- Un seul agent timer pour les deux équipes (sur le Raspberry Pi)
-
-## Architecture
-
-### Diagramme de classes
-
-![UML Diagram TimeKeeper](UML_diagram_TImekeeper.png)
-
-### Etape de fonctionnement
+### Etapes de fonctionnement
 0. Avoir allumer au moins 2 portiques Thingy:52
 1. Logger envoie `Hello TimeKeeper ! Please initialise a race.`
 2. TimeKeeper scanne les portiques BLE et les mets en mode appariements
-    -  Lorsque les portiques clignotent en blanc, pressez successivement leur bouton pour définir leur rôle (ler = start, 2ème = end)
-3. TimeKeeper confirme le processus et envoie `Pairing succesful : start_gate = {color} & end_gate = {color}`
+    - Lorsque les portiques clignotent en blanc, pressez le bouton du portique qui doit être le `start_gate` (l'autre devient automatiquement le `end_gate`)
+    - La `start_gate` s'allume en **turquoise**, la `end_gate` en **olive** pour confirmer leur rôle
+3. TimeKeeper confirme le processus et envoie `Pairing succesful : start_gate = turquoise & end_gate = olive`
 4. Quand on souhaite démarrer la course : Logger envoie `I'm ready to race !`
 5. Dès que toutes les équipes sont prêtes, le TimeKeeper déclenche le compte à rebours
 6. Le chrono de temps de course total se déclenche lorsque le `Go!!!` est envoyé
@@ -36,21 +23,6 @@ Après discussions avec Mr. Calvaresi, les modalités suivantes ont été conclu
 ## Infrastructure XMPP
 
 - **Serveur :** Prosody sur `isc-coordinator2.lan`
-- **Comptes utilisables déjà enregistrés lors de tests :**
-
-| JID | Usage |
-|-----|-------|
-| `timekeeper@isc-coordinator2.lan` | Agent TimeKeeper |
-| `navigator@isc-coordinator2.lan` | Logger équipe 1 |
-| `navigator2@isc-coordinator2.lan` | Logger équipe 2 |
-
-## Utilisation
-
-### Lancer le docker
-```bash
-# depuis le dossier desktop/Timekeeper du coordinator
-docker compose up --build
-```
 
 ### Protocole XMPP
 
