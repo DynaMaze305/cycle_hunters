@@ -122,7 +122,7 @@ class TimeKeeperCoordinator:
         self.sessions[sender_jid].start_gate = gates[0]
         self.sessions[sender_jid].end_gate   = gates[1]
 
-        await self._send(sender_jid, "Pairing succesful !")
+        await self._send(sender_jid, "Pairing successful !")
         logger.info(f"[Coordinator] Pairing done -- {sender_jid} can now send 'ready'")
 
         if self.sessions[sender_jid].ready.is_set():
